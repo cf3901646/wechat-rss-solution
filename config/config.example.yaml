@@ -1,0 +1,74 @@
+# 微信公众号 RSS 定时拉取与 Markdown 知识库归档配置文件
+
+# ==========================================
+# 1. RSS 订阅源列表
+# ==========================================
+rss_feeds:
+  # 示例 1：由 we-mp-rss 生成的源（默认部署在 8001 端口）
+  # 可以是单个公众号的订阅源，也可以是汇总源
+  - name: "示例公众号A"
+    url: "http://localhost:8001/feeds/all.xml"
+    enabled: true
+
+  # 示例 2：如果你部署在云端 VPS 上
+  # - name: "云端VPS上的公众号源"
+  #   url: "http://<你的VPS公网IP>:8001/feeds/xxx.xml"
+  #   enabled: true
+
+# ==========================================
+# 2. 存储与归档设置
+# ==========================================
+storage:
+  # Markdown 保存目录（支持相对路径或绝对路径）
+  # 例如直接指向你的 Obsidian 知识库目录：
+  # Windows 示例: "D:/ObsidianVault/WechatArticles"
+  # Linux/Mac 示例: "/home/user/ObsidianVault/WechatArticles"
+  output_dir: "./output/articles"
+
+  # 是否下载文章中的微信图片至本地（强烈建议开启，防止微信图片防盗链或失效）
+  download_images: true
+
+  # 图片存放子目录名（保存在 output_dir/images 目录下）
+  images_dir_name: "images"
+
+  # 增量同步历史记录库（记录已同步文章的唯一 ID，避免重复同步）
+  history_db_path: "./output/sync_history.json"
+
+# ==========================================
+# 3. 内容清洗选项
+# ==========================================
+cleaner:
+  # 是否自动去除文首文末常见的广告和关注话术
+  remove_ads: true
+
+  # 自定义过滤关键词（若段落中包含且字数较少，将被剔除）
+  filter_keywords:
+    - "点击上方蓝字关注"
+    - "长按二维码识别关注"
+    - "喜欢本文请点在看"
+    - "未经授权禁止转载"
+    - "欢迎关注公众号"
+    - "扫码进入交流群"
+
+# ==========================================
+# 4. 定时轮询调度配置（仅在 --daemon 模式下生效）
+# ==========================================
+scheduler:
+  # 每次轮询间隔（单位：分钟）
+  interval_minutes: 60
+
+# ==========================================
+# 5. 消息推送与通知（可选）
+# ==========================================
+notification:
+  # 推送渠道：none / feishu / wecom / dingtalk / serverchan / bark
+  channel: "none"
+
+  # 机器人 Webhook URL 或推送 Token
+  webhook_url: ""
+
+  # 同步到新文章时是否发送通知摘要
+  notify_on_new_articles: true
+
+  # 遇到拉取或解析错误时是否报警
+  notify_on_failure: true

@@ -1,0 +1,16 @@
+services:
+  we-mp-rss:
+    image: ghcr.io/rachelos/we-mp-rss:latest
+    container_name: we-mp-rss
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - TZ=Asia/Shanghai
+    # 资源限制（确保在 1 核 1G 的轻量 VPS 上平稳运行）
+    deploy:
+      resources:
+        limits:
+          memory: 512M

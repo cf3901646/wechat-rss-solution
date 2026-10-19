@@ -1,0 +1,30 @@
+# Virtual environment
+.venv/
+venv/
+ENV/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Runtime, databases and output artifacts
+data/
+output/
+logs/
+static/*.png
+*.log
+
+# Optional external submodules
+server/
+
+# Test temp files
+scripts/test_run_config.yaml
+
+# Distribution archives and temp files
+*.zip
+_dist_temp/
+
+# OS metadata
+.DS_Store
+Thumbs.db

@@ -1,0 +1,13 @@
+# ==============================================================================
+# Caddyfile 反向代理与全自动 SSL 证书配置模板
+# 如果你拥有域名（例如 rss.yourdomain.com），可以用 Caddy 自动申请免费 HTTPS
+# ==============================================================================
+
+# 将 your-rss-domain.com 替换为你解析到 VPS IP 的实际域名
+# your-rss-domain.com {
+#     encode gzip zstd
+#     reverse_proxy localhost:8001 {
+#         header_up Host {upstream_hostport}
+#         header_up X-Real-IP {remote_host}
+#     }
+# }

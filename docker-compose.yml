@@ -1,0 +1,29 @@
+services:
+  wechat-knowledge-base:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: wechat-knowledge-base:latest
+    container_name: wechat-knowledge-base
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+    volumes:
+      # 挂载宿主机目录实现数据持久化与成果互通：
+      # 1. 微信扫码授权与凭据记录 (容器重启或重建不丢授权)
+      - ./data:/app/data
+      # 2. 已下载公众号文章与离线单文件 HTML (宿主机可在 output/articles 下直接打开查阅或拷贝)
+      - ./output:/app/output
+      # 3. 配置文件目录
+      - ./config:/app/config
+    environment:
+      - TZ=Asia/Shanghai
+      - HOST=0.0.0.0
+      - PORT=8002
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8002/api/status"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 8s

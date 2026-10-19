@@ -1,0 +1,16 @@
+.git
+.gitignore
+.gitattributes
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
+Thumbs.db
+output/
+data/
+logs/*.log
+scratch/
+.idea
+.vscode

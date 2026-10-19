@@ -1,0 +1,1392 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>微信公众号知识库助手 - 一键采集与智能检索</title>
+  <style>
+    :root {
+      --primary: #07c160;
+      --primary-hover: #06ad56;
+      --primary-light: #e8f7ee;
+      --text-main: #1f2937;
+      --text-sub: #6b7280;
+      --text-light: #9ca3af;
+      --border: #e5e7eb;
+      --bg: #f9fafb;
+      --card-bg: #ffffff;
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background-color: var(--bg);
+      color: var(--text-main);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* 顶部统一导航栏 (紧凑高可视面积) */
+    .navbar {
+      height: 42px;
+      background: #ffffff;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px;
+      flex-shrink: 0;
+      z-index: 50;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    }
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #111827;
+    }
+    .brand-icon {
+      width: 24px;
+      height: 24px;
+      background: var(--primary);
+      color: white;
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+    .nav-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 9px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: #ffffff;
+      color: var(--text-main);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.15s ease;
+    }
+    .nav-btn:hover {
+      background: #f3f4f6;
+      border-color: #cbd5e1;
+    }
+    .nav-btn.active {
+      background: var(--primary-light);
+      border-color: var(--primary);
+      color: #065f46;
+      font-weight: 600;
+    }
+    .nav-stats {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-sub);
+    }
+    .stat-pill {
+      background: var(--bg);
+      padding: 2px 8px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      font-size: 11px;
+    }
+    .user-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 9px;
+      border-radius: 12px;
+      font-size: 11px;
+      background: #f3f4f6;
+    }
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #9ca3af;
+    }
+    .status-dot.active { background: var(--primary); box-shadow: 0 0 6px rgba(7, 193, 96, 0.6); }
+    .status-dot.error { background: #ef4444; }
+
+    /* 折叠面板状态下的微型进度条 */
+    .mini-sync-indicator {
+      height: 3px;
+      background: #e5e7eb;
+      position: relative;
+      overflow: hidden;
+      display: none;
+      flex-shrink: 0;
+    }
+    .mini-sync-indicator.active {
+      display: block;
+    }
+    .mini-sync-fill {
+      height: 100%;
+      background: var(--primary);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    /* 控制台折叠面板 (智能可折叠，最大化阅读面积) */
+    .sync-panel {
+      background: #ffffff;
+      border-bottom: 1px solid var(--border);
+      padding: 8px 16px 10px 16px;
+      flex-shrink: 0;
+      box-shadow: var(--shadow-sm);
+      transition: max-height 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+                  padding 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+                  opacity 0.22s ease;
+      max-height: 260px;
+      overflow: hidden;
+    }
+    .sync-panel.collapsed {
+      max-height: 0 !important;
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
+      opacity: 0;
+      border-bottom-color: transparent;
+      pointer-events: none;
+    }
+    .sync-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .sync-header-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .sync-header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .section-title {
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    /* 公众号卡片流 - 紧凑横排 */
+    .mp-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      max-height: 72px;
+      overflow-y: auto;
+      padding: 2px 0 4px 0;
+    }
+    .mp-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 8px;
+      background: #f9fafb;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.15s ease;
+    }
+    .mp-chip:hover {
+      background: #f3f4f6;
+      border-color: #cbd5e1;
+    }
+    .mp-chip.selected {
+      background: var(--primary-light);
+      border-color: var(--primary);
+      color: #065f46;
+      font-weight: 600;
+    }
+    .mp-chip .checkbox {
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+      border: 1px solid #9ca3af;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      color: white;
+    }
+    .mp-chip.selected .checkbox {
+      background: var(--primary);
+      border-color: var(--primary);
+    }
+    .mp-count-badge {
+      font-size: 10px;
+      color: var(--text-light);
+      background: rgba(0, 0, 0, 0.05);
+      padding: 1px 5px;
+      border-radius: 8px;
+    }
+
+    .time-selector {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+    }
+    .time-btn {
+      padding: 3px 8px;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+      background: #ffffff;
+      color: var(--text-sub);
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .time-btn:hover { background: #f3f4f6; }
+    .time-btn.active {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+      font-weight: 600;
+    }
+    .custom-input {
+      width: 48px;
+      padding: 2px 4px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-size: 11px;
+      text-align: center;
+    }
+
+    .btn-start-sync {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 12px;
+      background: var(--primary);
+      color: #ffffff;
+      border: none;
+      border-radius: 5px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 1px 4px rgba(7, 193, 96, 0.25);
+      transition: all 0.2s;
+    }
+    .btn-start-sync:hover {
+      background: var(--primary-hover);
+      transform: translateY(-1px);
+    }
+    .btn-start-sync:disabled {
+      background: #9ca3af;
+      box-shadow: none;
+      cursor: not-allowed;
+    }
+
+    /* 进度条显示 */
+    .progress-bar-wrap {
+      margin-top: 6px;
+      background: #e5e7eb;
+      height: 4px;
+      border-radius: 2px;
+      overflow: hidden;
+      display: none;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--primary);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    /* 双栏主体区域 (Split Pane) */
+    .main-workspace {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      background: var(--bg);
+      position: relative;
+    }
+
+    /* 左侧文章检索列表栏 (紧凑+支持折叠全宽) */
+    .left-sidebar {
+      width: 320px;
+      background: #ffffff;
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      overflow: hidden;
+      transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                  margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                  opacity 0.2s ease;
+    }
+    .left-sidebar.collapsed {
+      width: 0 !important;
+      margin-left: -320px !important;
+      opacity: 0;
+      pointer-events: none;
+      border-right-color: transparent;
+    }
+    .search-header {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      background: #ffffff;
+    }
+    .search-input-box {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .search-input-box svg {
+      position: absolute;
+      left: 8px;
+      color: var(--text-light);
+      width: 14px;
+      height: 14px;
+    }
+    .search-input {
+      width: 100%;
+      padding: 5px 8px 5px 28px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      font-size: 12px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .search-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(7, 193, 96, 0.15);
+    }
+
+    /* 排序与公众号快速筛选行 */
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 6px;
+      gap: 6px;
+    }
+    .filter-select {
+      padding: 3px 6px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-size: 11px;
+      color: var(--text-sub);
+      background: #fff;
+      outline: none;
+    }
+    .author-tags {
+      display: flex;
+      gap: 4px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+    }
+    .author-tag {
+      font-size: 11px;
+      padding: 1px 7px;
+      background: #f3f4f6;
+      border-radius: 10px;
+      color: var(--text-sub);
+      cursor: pointer;
+      white-space: nowrap;
+      user-select: none;
+    }
+    .author-tag.active {
+      background: var(--primary-light);
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    /* 文章列表流 */
+    .article-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px 8px;
+    }
+    .article-card {
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      margin-bottom: 4px;
+      cursor: pointer;
+      background: #ffffff;
+      transition: all 0.15s ease;
+    }
+    .article-card:hover {
+      background: #f9fafb;
+      border-color: var(--border);
+    }
+    .article-card.active {
+      background: var(--primary-light);
+      border-color: rgba(7, 193, 96, 0.4);
+    }
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.35;
+      color: #111827;
+      margin-bottom: 4px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .card-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--text-sub);
+    }
+    .card-author {
+      color: #576b95;
+      font-weight: 500;
+    }
+
+    /* 右侧阅读器 (视口最大化) */
+    .right-reader {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: #ffffff;
+      overflow: hidden;
+    }
+    .reader-toolbar {
+      height: 38px;
+      border-bottom: 1px solid var(--border);
+      padding: 0 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #ffffff;
+      flex-shrink: 0;
+      gap: 10px;
+    }
+    .reader-title-info {
+      font-size: 13px;
+      font-weight: 600;
+      color: #111827;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      max-width: calc(100vw - 520px);
+    }
+    .reader-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .btn-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 9px;
+      font-size: 12px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      background: #ffffff;
+      color: var(--text-main);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-action:hover {
+      background: #f9fafb;
+      border-color: #9ca3af;
+    }
+    .btn-action-primary {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+    }
+    .btn-action-primary:hover {
+      background: var(--primary-hover);
+      color: #ffffff;
+    }
+
+    .reader-frame {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    /* 空状态指引 */
+    .empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-light);
+      gap: 12px;
+    }
+    .empty-state svg {
+      color: #d1d5db;
+    }
+
+    /* 扫码弹窗 Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+    .modal-overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .qr-modal {
+      background: #ffffff;
+      width: 360px;
+      padding: 30px 24px;
+      border-radius: 16px;
+      box-shadow: var(--shadow-lg);
+      text-align: center;
+      position: relative;
+    }
+    .qr-modal-close {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      background: transparent;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      color: var(--text-light);
+    }
+    .qr-img-box {
+      width: 220px;
+      height: 220px;
+      margin: 16px auto;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 8px;
+      background: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .qr-img-box img {
+      width: 100%;
+      height: 100%;
+      border-radius: 8px;
+    }
+
+    /* Toast 弹窗 */
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(17, 24, 39, 0.9);
+      color: #ffffff;
+      padding: 10px 20px;
+      border-radius: 30px;
+      font-size: 13px;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.25s;
+      z-index: 10000;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 顶部导航栏 (紧凑高可视面积 42px) -->
+  <nav class="navbar">
+    <div class="nav-brand">
+      <div class="brand-icon">📑</div>
+      <span>微信公众号知识库助手</span>
+      <button class="nav-btn" id="btn-toggle-sync" onclick="toggleSyncPanel()" title="展开/收起公众号抓取配置面板 (快捷键: ])">
+        <span id="sync-toggle-icon">🔄</span>
+        <span id="sync-toggle-text">抓取管理</span>
+        <span id="sync-toggle-arrow">▾</span>
+      </button>
+    </div>
+
+    <div class="nav-stats">
+      <button class="nav-btn" id="btn-toggle-zen" onclick="toggleSidebar()" title="全宽阅读模式：折叠/展开左侧列表 (快捷键: [)">
+        <span id="zen-icon">🖥️</span>
+        <span id="zen-text">专注全宽</span>
+      </button>
+      <span class="stat-pill" id="stat-articles">已归档 0 篇</span>
+      <span class="stat-pill" id="stat-images" style="display: none;">图片 0 张</span>
+      <div class="user-status" id="user-status-box" onclick="openLoginModal()" style="cursor: pointer;" title="点击重新扫码授权">
+        <span class="status-dot" id="user-status-dot"></span>
+        <span id="user-status-text">检测登录中...</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- 折叠状态下的微型进度条 -->
+  <div class="mini-sync-indicator" id="mini-progress-wrap">
+    <div class="mini-sync-fill" id="mini-progress-fill"></div>
+  </div>
+
+  <!-- 采集控制面板 (智能可折叠，最大化阅读面积) -->
+  <section class="sync-panel" id="sync-panel">
+    <div class="sync-header">
+      <div class="sync-header-left">
+        <span class="section-title">📚 同步公众号</span>
+        <button class="time-btn" onclick="toggleSelectAll()" style="font-size: 11px; padding: 2px 7px;">全选/反选</button>
+        <span style="font-size: 12px; color: var(--text-sub);" id="selected-summary">已选 0/0 个</span>
+      </div>
+      <div class="sync-header-right">
+        <div class="time-selector">
+          <span style="font-weight: 600; color: var(--text-sub); font-size: 12px;">范围:</span>
+          <button class="time-btn active" data-days="7" onclick="selectTime(7, this)">7天</button>
+          <button class="time-btn" data-days="30" onclick="selectTime(30, this)">30天</button>
+          <button class="time-btn" data-days="90" onclick="selectTime(90, this)">90天</button>
+          <button class="time-btn" data-days="0" onclick="selectTime(0, this)">全部</button>
+          <input type="number" class="custom-input" id="custom-days" placeholder="天数" min="1" max="999" onchange="onCustomDaysChange(this.value)">天
+        </div>
+        <button class="btn-start-sync" id="btn-sync" onclick="startSync()" style="padding: 4px 12px; font-size: 12px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          <span>开始抓取</span>
+        </button>
+        <button class="btn-action" onclick="toggleSyncPanel(false)" title="收起此控制面板，腾出最大阅读区域" style="padding: 3px 8px; font-size: 11px;">
+          🔼 收起
+        </button>
+      </div>
+    </div>
+
+    <!-- 公众号卡片流 (紧凑横排) -->
+    <div class="mp-grid" id="mp-grid">
+      <div style="font-size: 12px; color: var(--text-light); padding: 6px;">正在读取您的微信读书公众号列表...</div>
+    </div>
+
+    <!-- 动态进度条 -->
+    <div class="progress-bar-wrap" id="progress-wrap">
+      <div class="progress-bar-fill" id="progress-fill"></div>
+    </div>
+    <div id="progress-text" style="font-size: 12px; color: var(--primary); margin-top: 4px; display: none;"></div>
+  </section>
+
+  <!-- 下部主体：双栏知识库检索与阅读 -->
+  <main class="main-workspace">
+    <!-- 左栏：搜索与排序文章列表 (320px 紧凑列表，可一键折叠) -->
+    <aside class="left-sidebar" id="left-sidebar">
+      <div class="search-header">
+        <div class="search-input-box">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input type="text" class="search-input" id="search-input" placeholder="实时搜索文章、公众号 (快捷键: /)..." oninput="onSearchInput()">
+        </div>
+
+        <div class="filter-bar">
+          <div class="author-tags" id="author-tags">
+            <span class="author-tag active" onclick="filterByAuthor('', this)">全部</span>
+          </div>
+          <select class="filter-select" id="sort-select" onchange="onSortChange()">
+            <option value="date_desc">📅 最新优先</option>
+            <option value="date_asc">📅 最早优先</option>
+            <option value="title">🔤 标题字典</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 文章卡片列表容器 -->
+      <div class="article-list" id="article-list">
+        <div style="text-align: center; color: var(--text-light); padding: 40px 0; font-size: 13px;">正在加载文章知识库...</div>
+      </div>
+    </aside>
+
+    <!-- 右栏：同页面高保真阅读器 (视口最大化) -->
+    <section class="right-reader" id="right-reader">
+      <div class="reader-toolbar" id="reader-toolbar" style="display: none;">
+        <div style="display: flex; align-items: center; gap: 8px; overflow: hidden;">
+          <button class="btn-action" id="btn-reader-toggle-sidebar" onclick="toggleSidebar()" title="折叠/展开左侧列表 (快捷键: [)" style="flex-shrink: 0; padding: 2px 7px; font-size: 11px;">
+            ◀ 侧栏
+          </button>
+          <div class="reader-title-info" id="reader-title">文章标题</div>
+        </div>
+        <div class="reader-actions">
+          <button class="btn-action" onclick="copyReaderText()" title="一键复制当前文章纯文本">
+            📋 复制文字
+          </button>
+          <button class="btn-action btn-action-primary" onclick="copyReaderFullHtml()" title="一键复制全文（图文一体），可在微信/Word直接 Ctrl+V">
+            📑 复制全文 (图文)
+          </button>
+          <button class="btn-action" onclick="openInNewTab()" title="在新标签页中全屏独立打开">
+            🔗 独立窗口
+          </button>
+        </div>
+      </div>
+
+      <!-- 嵌入阅读 frame -->
+      <iframe class="reader-frame" id="article-iframe" src="about:blank" style="display: none;"></iframe>
+
+      <!-- 空状态 -->
+      <div class="empty-state" id="reader-empty">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+        <p>👈 请在左侧列表中点击任意文章，即刻在此展开阅读与一键复制</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- 微信扫码授权弹窗 Modal -->
+  <div class="modal-overlay" id="qr-modal" onclick="if(event.target===this)closeLoginModal()">
+    <div class="qr-modal">
+      <button class="qr-modal-close" onclick="closeLoginModal()">&times;</button>
+      <h3 style="font-size: 18px; margin-bottom: 6px;">微信扫码授权</h3>
+      <p style="font-size: 13px; color: var(--text-sub);">使用微信 App 扫描下方二维码登录微信读书</p>
+
+      <div class="qr-img-box">
+        <img id="modal-qr-img" src="" alt="二维码加载中...">
+      </div>
+
+      <div id="modal-qr-status" style="font-size: 13px; color: var(--primary); font-weight: 500;">正在获取二维码...</div>
+      <p style="font-size: 11px; color: var(--text-light); margin-top: 10px;">授权后凭据将长效安全保存在您本地电脑</p>
+    </div>
+  </div>
+
+  <!-- Toast 提示 -->
+  <div class="toast" id="toast">✅ 复制成功</div>
+
+  <script>
+    // 全局状态管理
+    const state = {
+      isLoggedIn: false,
+      vid: '',
+      shelfMps: [],
+      selectedBookIds: new Set(),
+      selectedDays: 7,
+      articles: [],
+      currentAuthor: '',
+      currentArticle: null,
+      qrPollingTimer: null,
+      qrPollFailures: 0
+    };
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.innerText = msg;
+      t.classList.add('show');
+      clearTimeout(window._toastT);
+      window._toastT = setTimeout(() => t.classList.remove('show'), 2200);
+    }
+
+    // 0. 界面折叠与视口最大化控制
+    function toggleSyncPanel(forceState) {
+      const panel = document.getElementById('sync-panel');
+      const isCurrentlyCollapsed = panel.classList.contains('collapsed');
+      const shouldCollapse = (typeof forceState === 'boolean') ? !forceState : !isCurrentlyCollapsed;
+
+      const arrow = document.getElementById('sync-toggle-arrow');
+      const btn = document.getElementById('btn-toggle-sync');
+
+      if (shouldCollapse) {
+        panel.classList.add('collapsed');
+        if (arrow) arrow.innerText = '▾';
+        if (btn) btn.classList.remove('active');
+        localStorage.setItem('portal_sync_collapsed', '1');
+      } else {
+        panel.classList.remove('collapsed');
+        if (arrow) arrow.innerText = '▴';
+        if (btn) btn.classList.add('active');
+        localStorage.setItem('portal_sync_collapsed', '0');
+      }
+    }
+
+    function toggleSidebar(forceState) {
+      const sidebar = document.getElementById('left-sidebar');
+      const isCurrentlyCollapsed = sidebar.classList.contains('collapsed');
+      const shouldCollapse = (typeof forceState === 'boolean') ? !forceState : !isCurrentlyCollapsed;
+
+      const zenBtn = document.getElementById('btn-toggle-zen');
+      const zenText = document.getElementById('zen-text');
+      const readerBtn = document.getElementById('btn-reader-toggle-sidebar');
+
+      if (shouldCollapse) {
+        sidebar.classList.add('collapsed');
+        if (zenBtn) zenBtn.classList.add('active');
+        if (zenText) zenText.innerText = '展开列表';
+        if (readerBtn) readerBtn.innerText = '▶ 列表';
+        localStorage.setItem('portal_sidebar_collapsed', '1');
+      } else {
+        sidebar.classList.remove('collapsed');
+        if (zenBtn) zenBtn.classList.remove('active');
+        if (zenText) zenText.innerText = '专注全宽';
+        if (readerBtn) readerBtn.innerText = '◀ 侧栏';
+        localStorage.setItem('portal_sidebar_collapsed', '0');
+      }
+    }
+
+    // 初始化加载
+    window.addEventListener('DOMContentLoaded', () => {
+      // 记忆恢复或小屏自动收起抓取面板
+      const savedSync = localStorage.getItem('portal_sync_collapsed');
+      if (savedSync === '1' || (savedSync === null && window.innerHeight < 820)) {
+        toggleSyncPanel(false);
+      } else {
+        toggleSyncPanel(true);
+      }
+
+      const savedSidebar = localStorage.getItem('portal_sidebar_collapsed');
+      if (savedSidebar === '1') {
+        toggleSidebar(false);
+      }
+
+      // 注册快捷键: [ 折叠左栏, ] 折叠抓取面板, / 聚焦搜索
+      window.addEventListener('keydown', (e) => {
+        if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+        if (e.key === '[') {
+          toggleSidebar();
+        } else if (e.key === ']') {
+          toggleSyncPanel();
+        } else if (e.key === '/') {
+          e.preventDefault();
+          const s = document.getElementById('search-input');
+          if (s) {
+            toggleSidebar(true);
+            s.focus();
+            s.select();
+          }
+        }
+      });
+
+      checkStatus();
+      loadArticles();
+    });
+
+    // 1. 检查状态
+    async function checkStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+
+        document.getElementById('stat-articles').innerText = `已归档 ${data.total_articles} 篇文章`;
+        document.getElementById('stat-images').innerText = `本地图片 ${data.total_images} 张`;
+
+        const dot = document.getElementById('user-status-dot');
+        const text = document.getElementById('user-status-text');
+
+        if (data.is_logged_in && !data.need_relogin) {
+          state.isLoggedIn = true;
+          state.vid = data.vid;
+          dot.className = 'status-dot active';
+          text.innerText = `微信读书已就绪 (${data.vid})`;
+          loadShelf();
+        } else {
+          state.isLoggedIn = false;
+          dot.className = 'status-dot error';
+          text.innerText = data.need_relogin ? '授权已过期，点击重新扫码' : '未登录，点击扫码';
+          if (data.need_relogin) {
+            openLoginModal();
+          }
+        }
+      } catch (e) {
+        console.error('检查状态异常:', e);
+      }
+    }
+
+    // 2. 扫码登录流程
+    function stopQrPolling() {
+      if (state.qrPollingTimer) {
+        clearInterval(state.qrPollingTimer);
+        state.qrPollingTimer = null;
+      }
+      state.qrPollFailures = 0;
+    }
+
+    async function openLoginModal() {
+      const modal = document.getElementById('qr-modal');
+      const statusText = document.getElementById('modal-qr-status');
+      const img = document.getElementById('modal-qr-img');
+
+      modal.classList.add('show');
+      statusText.innerText = '正在向微信读书申请二维码...';
+      img.src = '';
+      stopQrPolling();
+
+      try {
+        const res = await fetch('/api/qrcode');
+        const data = await res.json();
+
+        // 弹窗如果中途已关闭，停止启动轮询
+        if (!modal.classList.contains('show')) {
+          return;
+        }
+
+        if (data.error) {
+          statusText.innerText = data.error;
+          return;
+        }
+
+        img.src = data.qrcode_data_url;
+        statusText.innerText = '等待扫码... 请打开手机微信扫一扫';
+
+        // 开始轮询
+        state.qrPollFailures = 0;
+        state.qrPollingTimer = setInterval(pollQrStatus, 2000);
+      } catch (e) {
+        if (modal.classList.contains('show')) {
+          statusText.innerText = '获取二维码异常，请检查网络';
+        }
+      }
+    }
+
+    function closeLoginModal() {
+      document.getElementById('qr-modal').classList.remove('show');
+      stopQrPolling();
+    }
+
+    async function pollQrStatus() {
+      const modal = document.getElementById('qr-modal');
+      if (!modal.classList.contains('show')) {
+        stopQrPolling();
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/qr_status');
+        if (!res.ok) {
+          throw new Error('HTTP ' + res.status);
+        }
+        const data = await res.json();
+        state.qrPollFailures = 0; // 重置失败计数
+        const statusText = document.getElementById('modal-qr-status');
+
+        if (data.msg) {
+          statusText.innerText = `>>> ${data.msg}`;
+        }
+
+        if (data.login_status) {
+          stopQrPolling();
+          statusText.innerText = '🎉 登录成功！正在进入系统...';
+          showToast('✅ 微信读书授权成功！');
+          setTimeout(() => {
+            closeLoginModal();
+            checkStatus();
+          }, 1200);
+        }
+      } catch (e) {
+        state.qrPollFailures = (state.qrPollFailures || 0) + 1;
+        console.warn(`轮询扫码状态失败 (${state.qrPollFailures}/5):`, e);
+        if (state.qrPollFailures >= 5) {
+          stopQrPolling();
+          const statusText = document.getElementById('modal-qr-status');
+          if (statusText) {
+            statusText.innerText = '❌ 轮询异常已达上限，请检查网络连接后重新扫码';
+          }
+        }
+      }
+    }
+
+    // 3. 加载公众号书架
+    async function loadShelf() {
+      try {
+        const res = await fetch('/api/shelf');
+        const data = await res.json();
+        if (data.need_login) {
+          openLoginModal();
+          return;
+        }
+
+        state.shelfMps = data.mps || [];
+        // 默认全选
+        state.selectedBookIds = new Set(state.shelfMps.map(m => m.book_id));
+        renderShelfChips();
+      } catch (e) {
+        console.error('加载书架异常:', e);
+      }
+    }
+
+    function renderShelfChips() {
+      const grid = document.getElementById('mp-grid');
+      grid.innerHTML = '';
+
+      if (state.shelfMps.length === 0) {
+        grid.innerHTML = '<div style="font-size: 12px; color: var(--text-light); padding: 10px;">书架上暂无公众号，请在手机微信读书中将公众号加入书架。</div>';
+        return;
+      }
+
+      state.shelfMps.forEach(mp => {
+        const isSelected = state.selectedBookIds.has(mp.book_id);
+        const chip = document.createElement('div');
+        chip.className = `mp-chip ${isSelected ? 'selected' : ''}`;
+        chip.innerHTML = `
+          <div class="checkbox">${isSelected ? '✓' : ''}</div>
+          <span>${mp.name}</span>
+          <span class="mp-count-badge">${mp.synced_count} 篇</span>
+        `;
+        chip.onclick = () => toggleMpSelect(mp.book_id);
+        grid.appendChild(chip);
+      });
+
+      updateSelectedSummary();
+    }
+
+    function toggleMpSelect(bookId) {
+      if (state.selectedBookIds.has(bookId)) {
+        state.selectedBookIds.delete(bookId);
+      } else {
+        state.selectedBookIds.add(bookId);
+      }
+      renderShelfChips();
+    }
+
+    function toggleSelectAll() {
+      if (state.selectedBookIds.size === state.shelfMps.length) {
+        state.selectedBookIds.clear();
+      } else {
+        state.selectedBookIds = new Set(state.shelfMps.map(m => m.book_id));
+      }
+      renderShelfChips();
+    }
+
+    function updateSelectedSummary() {
+      document.getElementById('selected-summary').innerText = `已选择 ${state.selectedBookIds.size} / ${state.shelfMps.length} 个公众号`;
+    }
+
+    // 4. 时间选项切换
+    function selectTime(days, btn) {
+      state.selectedDays = days;
+      document.querySelectorAll('.time-btn[data-days]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('custom-days').value = '';
+    }
+
+    function onCustomDaysChange(val) {
+      const days = parseInt(val, 10);
+      if (days > 0) {
+        state.selectedDays = days;
+        document.querySelectorAll('.time-btn[data-days]').forEach(b => b.classList.remove('active'));
+      }
+    }
+
+    // 5. 触发抓取同步
+    async function startSync() {
+      if (state.selectedBookIds.size === 0) {
+        alert('请至少勾选一个公众号！');
+        return;
+      }
+
+      const btn = document.getElementById('btn-sync');
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            book_ids: Array.from(state.selectedBookIds),
+            days_limit: state.selectedDays
+          })
+        });
+
+        const data = await res.json();
+        if (data.error) {
+          alert(data.error);
+          btn.disabled = false;
+          return;
+        }
+
+        // 展开进度展示
+        document.getElementById('progress-wrap').style.display = 'block';
+        document.getElementById('progress-text').style.display = 'block';
+        const miniWrap = document.getElementById('mini-progress-wrap');
+        const miniFill = document.getElementById('mini-progress-fill');
+        if (miniWrap) miniWrap.classList.add('active');
+        if (miniFill) miniFill.style.width = '2%';
+
+        // 轮询抓取进度
+        pollSyncProgress();
+      } catch (e) {
+        alert('启动抓取失败，请检查网络');
+        btn.disabled = false;
+      }
+    }
+
+    async function pollSyncProgress() {
+      try {
+        const res = await fetch('/api/sync_progress');
+        const data = await res.json();
+
+        const pFill = document.getElementById('progress-fill');
+        const pText = document.getElementById('progress-text');
+        const miniWrap = document.getElementById('mini-progress-wrap');
+        const miniFill = document.getElementById('mini-progress-fill');
+
+        if (pFill) pFill.style.width = `${data.percent}%`;
+        if (miniFill) miniFill.style.width = `${data.percent}%`;
+        if (pText) pText.innerText = `${data.message} (${data.percent}%)`;
+
+        if (data.is_running) {
+          if (miniWrap) miniWrap.classList.add('active');
+          setTimeout(pollSyncProgress, 1500);
+        } else {
+          if (miniWrap) miniWrap.classList.remove('active');
+          document.getElementById('btn-sync').disabled = false;
+          showToast(data.message);
+          // 刷新列表与书架
+          loadArticles();
+          loadShelf();
+          setTimeout(() => {
+            document.getElementById('progress-wrap').style.display = 'none';
+            document.getElementById('progress-text').style.display = 'none';
+          }, 3500);
+        }
+      } catch (e) {
+        setTimeout(pollSyncProgress, 2000);
+      }
+    }
+
+    // 6. 文章列表加载与搜索排序
+    async function loadArticles() {
+      const q = document.getElementById('search-input').value;
+      const sort = document.getElementById('sort-select').value;
+      const author = state.currentAuthor;
+
+      const url = `/api/articles?q=${encodeURIComponent(q)}&sort=${sort}&author=${encodeURIComponent(author)}`;
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        state.articles = data.articles || [];
+
+        renderArticleList(state.articles);
+        renderAuthorTags(data.authors || []);
+      } catch (e) {
+        console.error('加载文章异常:', e);
+      }
+    }
+
+    function renderAuthorTags(authors) {
+      const box = document.getElementById('author-tags');
+      const current = state.currentAuthor;
+      box.innerHTML = `<span class="author-tag ${current === '' ? 'active' : ''}" onclick="filterByAuthor('', this)">全部</span>`;
+
+      authors.forEach(auth => {
+        const tag = document.createElement('span');
+        tag.className = `author-tag ${current === auth ? 'active' : ''}`;
+        tag.innerText = auth;
+        tag.onclick = () => filterByAuthor(auth, tag);
+        box.appendChild(tag);
+      });
+    }
+
+    function filterByAuthor(author, el) {
+      state.currentAuthor = author;
+      loadArticles();
+    }
+
+    function onSearchInput() {
+      clearTimeout(window._searchTimer);
+      window._searchTimer = setTimeout(loadArticles, 250);
+    }
+
+    function onSortChange() {
+      loadArticles();
+    }
+
+    function renderArticleList(articles) {
+      const listEl = document.getElementById('article-list');
+      listEl.innerHTML = '';
+
+      if (articles.length === 0) {
+        listEl.innerHTML = '<div style="text-align: center; color: var(--text-light); padding: 40px 0; font-size: 13px;">无匹配文章</div>';
+        return;
+      }
+
+      articles.forEach(art => {
+        const card = document.createElement('div');
+        const isCurrent = state.currentArticle && state.currentArticle.filename === art.filename;
+        card.className = `article-card ${isCurrent ? 'active' : ''}`;
+        card.innerHTML = `
+          <div class="card-title" title="${art.title}">${art.title}</div>
+          <div class="card-meta">
+            <span class="card-author">@${art.author}</span>
+            <span>📅 ${art.date}</span>
+            <span>${art.size_kb} KB</span>
+          </div>
+        `;
+        card.onclick = () => openArticle(art, card);
+        listEl.appendChild(card);
+      });
+    }
+
+    // 7. 同页面内置双栏阅读器联动
+    function openArticle(art, cardEl) {
+      state.currentArticle = art;
+      document.querySelectorAll('.article-card').forEach(c => c.classList.remove('active'));
+      if (cardEl) cardEl.classList.add('active');
+
+      document.getElementById('reader-empty').style.display = 'none';
+      document.getElementById('reader-toolbar').style.display = 'flex';
+
+      const iframe = document.getElementById('article-iframe');
+      iframe.style.display = 'block';
+      iframe.src = art.url;
+
+      document.getElementById('reader-title').innerText = art.title;
+      document.getElementById('reader-title').title = art.title;
+
+      // 窄屏幕或小笔记本下自动折叠左栏，让正文立即占据全宽
+      if (window.innerWidth <= 850) {
+        toggleSidebar(true);
+      }
+    }
+
+    function openInNewTab() {
+      if (state.currentArticle) {
+        window.open(state.currentArticle.url, '_blank');
+      }
+    }
+
+    // 8. 阅读器顶部一键复制代理（在具有活跃焦点的父页面直接读取 iframe DOM 并写入剪贴板，彻底杜绝 Document is not focused）
+    async function copyReaderText() {
+      if (!state.currentArticle) {
+        showToast('请先在左侧选择一篇文章');
+        return;
+      }
+
+      const iframe = document.getElementById('article-iframe');
+      if (!iframe || !iframe.contentDocument) {
+        showToast('正在加载文章内容，请稍候...');
+        return;
+      }
+      const doc = iframe.contentDocument;
+      const titleEl = doc.querySelector('.article-title');
+      const bodyEl = doc.getElementById('article-body') || doc.body;
+
+      if (!bodyEl) {
+        showToast('文章内容为空或正在加载中，请稍候...');
+        return;
+      }
+
+      // 克隆节点并彻底净化所有交互按钮（如“复制图片”按钮）、脚本及辅助样式，确保只提取纯正正文
+      const clone = bodyEl.cloneNode(true);
+      clone.querySelectorAll('.copy-img-btn, button, script, style').forEach(el => el.remove());
+      let bodyText = (clone.innerText || '').trim();
+      bodyText = bodyText.replace(/\n{3,}/g, '\n\n');
+
+      if (!bodyText) {
+        showToast('文章内容为空或正在加载中，请稍候...');
+        return;
+      }
+
+      const title = titleEl ? titleEl.innerText.trim() : (state.currentArticle ? state.currentArticle.title : '');
+      const fullText = title ? `${title}\n\n${bodyText}` : bodyText;
+
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(fullText);
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = fullText;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+        }
+        showToast('✅ 已复制全文纯文字！');
+      } catch (err) {
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = fullText;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+          showToast('✅ 已复制全文纯文字！');
+        } catch (e2) {
+          showToast('❌ 复制失败，请尝试在文章中手动划选复制');
+        }
+      }
+    }
+
+    async function copyReaderFullHtml() {
+      if (!state.currentArticle) {
+        showToast('请先在左侧选择一篇文章');
+        return;
+      }
+
+      const iframe = document.getElementById('article-iframe');
+      if (!iframe || !iframe.contentDocument) {
+        showToast('正在加载文章内容，请稍候...');
+        return;
+      }
+      const doc = iframe.contentDocument;
+      const root = doc.getElementById('article-root') || doc.body;
+      if (!root || !root.innerHTML || !root.innerText || !root.innerText.trim()) {
+        showToast('文章内容为空或正在加载中，请稍候...');
+        return;
+      }
+
+      // 克隆节点以净化掉单独的复制图片按钮及各类交互按键
+      const clone = root.cloneNode(true);
+      clone.querySelectorAll('.copy-img-btn, button, script, style').forEach(el => el.remove());
+
+      const htmlContent = clone.innerHTML;
+      const textContent = clone.innerText;
+
+      try {
+        if (navigator.clipboard && window.ClipboardItem) {
+          const blobHtml = new Blob([htmlContent], { type: 'text/html' });
+          const blobText = new Blob([textContent], { type: 'text/plain' });
+          await navigator.clipboard.write([
+            new ClipboardItem({
+              'text/html': blobHtml,
+              'text/plain': blobText
+            })
+          ]);
+          showToast('🎉 全文(图文)已复制！可在微信/Word中按 Ctrl+V 粘贴');
+          return;
+        }
+      } catch (e) {
+        console.warn('ClipboardItem 写入失败，尝试降级主窗口选区复制:', e);
+      }
+
+      // 降级使用主文档临时容器选区复制（焦点在父页面）
+      try {
+        const tempDiv = document.createElement('div');
+        tempDiv.style.position = 'fixed';
+        tempDiv.style.left = '-9999px';
+        tempDiv.style.top = '0';
+        tempDiv.innerHTML = htmlContent;
+        document.body.appendChild(tempDiv);
+
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(tempDiv);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        document.execCommand('copy');
+        selection.removeAllRanges();
+        document.body.removeChild(tempDiv);
+
+        showToast('🎉 全文(图文)已复制！可在微信/Word中按 Ctrl+V 粘贴');
+      } catch (err) {
+        showToast('❌ 复制失败，可在文章独立窗口中选区复制');
+      }
+    }
+  </script>
+</body>
+</html>

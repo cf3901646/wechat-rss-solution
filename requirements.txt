@@ -1,0 +1,26 @@
+# 微信公众号知识库助手运行依赖
+# 安装方式：pip install -r requirements.txt
+
+# 核心配置与网络请求
+PyYAML>=6.0.1
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+
+# 微信读书扫码登录与二维码生成
+qrcode>=8.0
+pillow>=10.0.0
+
+# Markdown 解析与单文件 HTML 导出
+markdown>=3.5.0
+
+# 控制台色彩高亮输出
+colorama>=0.4.6
+
+# 剪贴板监听与交互
+pyperclip>=1.8.2
+
+# PC 端微信搜一搜流量嗅探（可选进阶模式）
+mitmproxy>=12.0.0
+
+# Windows 桌面自动化（Windows 平台可选）
+uiautomation>=2.0.20; sys_platform == 'win32'
